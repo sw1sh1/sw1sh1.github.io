@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual Analytics Project 1</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <script src="lib/jquery.js"></script>
+    <script src="lib/bootstrap.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>    
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.1.2/papaparse.min.js" charset="utf-8"></script>
+    <script src="lib/parseFiles.js"></script>
+    <style>
+        select{
+            text-align-last:center;
+            height: 40px;
+            background: #7f0de6;
+            color: white;
+            border-radius: 5px;
+            font-size: 13px;  
+        }
+        option{
+            background:#e6550d;
+            color:black;
+            text-align: center;
+        }
+
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h2>Interactive Visualization Project 1</h2>
+    <ul class="nav nav-tabs">
+        <li class="active"><a data-toggle="pill" href="#bar">Bar Chart</a></li>
+        <li><a data-toggle="pill" href="#line">Line Chart</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <div id="bar" class="tab-pane fade in active">
+            <div >
+                <svg id="barchart" class="col-md-9" width="1000" height="600">
+                    <text id="label" x="100" y="70"></text>
+                </svg>
+            </div>
+            <div class="col-md-3 optionPane">
+                <!-- Dropdown list selector for the bar chart -->
+                <div class="row" style="margin-top: 400px; margin-left:10px;">
+                    <select id="selectDatasetBar" >
+                        <option value="totalPrimaryConsumption">Total Primary Energy Consumption</option>
+                        <option value="totalPrimaryProduction">Total Primary Energy Production</option>
+                        <option value="totalElectricityConsumption">Total Electricity Consumption</option>
+                        <option value="totalElectricityGeneration">Total Electricity Generation</option>
+                        <option value="renewableElectricityConsumption">Renewable Electricity Consumption</option>
+                        <option value="renewableElectricityProduction">Renewable Electricity Production</option>
+                        <option value="renewableBiofuelConsumption">Renewable Biofuel Consumption</option>
+                        <option value="renewableBiofuelProduction">Renewable Biofuel Production</option>
+                        <option value="petroleumConsumption">Petroleum Consumption</option>
+                        <option value="petroleumProduction">Petroleum Production</option>
+                        <option value="coalConsumption">Coal Consumption</option>
+                        <option value="coalProduction">Coal Production</option>
+                        <option value="co2Emission">CO2 Emission</option>
+                    </select>
+
+                </div>
+
+                <div class="row" style="margin-top: 20px; margin-left:10px;">
+                        <select id="selectBar">
+
+                        </select>
+                    </div> 
+                
+            </div>
+              <p><strong>Design Document can be found </strong><a href="Project Documentation.pdf">here</a> 
+                    <strong>Video can be found </strong><a href="https://youtu.be/88-TUZeVwHo">here</a>
+                </p>
+        </div>
+        <div id="line" class="tab-pane">
+            <div >
+                <svg id="linechart" class="col-md-9" width="1000" height="600">
+                    <text id="label" x="100" y="70"></text>
+                </svg>
+            </div>
+            <div class="col-md-3 optionPane">
+
+                <!-- Dropdown list selector for the line chart-->
+                <div class="row" style="margin-top: 300px; margin-left:10px;">
+
+                        <select id="selectDatasetLine">
+                        <option value="totalPrimaryConsumption">Total Primary Energy Consumption</option>
+                        <option value="totalPrimaryProduction">Total Primary Energy Production</option>
+                        <option value="totalElectricityConsumption">Total Electricity Consumption</option>
+                        <option value="totalElectricityGeneration">Total Electricity Generation</option>
+                        <option value="renewableElectricityConsumption">Renewable Electricity Consumption</option>
+                        <option value="renewableElectricityProduction">Renewable Electricity Production</option>
+                        <option value="renewableBiofuelConsumption">Renewable Biofuel Consumption</option>
+                        <option value="renewableBiofuelProduction">Renewable Biofuel Production</option>
+                        <option value="petroleumConsumption">Petroleum Consumption</option>
+                        <option value="petroleumProduction">Petroleum Production</option>
+                        <option value="coalConsumption">Coal Consumption</option>
+                        <option value="coalProduction">Coal Production</option>
+                        <option value="co2Emission">CO2 Emission</option>
+                    </select>
+
+                </div>
+                <div class="row" style="margin-top: 20px; margin-left:10px;">
+
+                        <select id="selectLine" ></select>
+
+                </div>
+
+                <!--added code-->
+                <div id="secondLine" class="row hidden" style="margin-top: 20px; margin-left:10px;">
+
+                        <button id="removeLine" class="btn btn-primary">-</button>
+                            <select id="selectLine2" ></select>
+
+                </div>
+                <div class="row" style="margin-top: 20px; margin-left:10px;">
+                    <button id="addLine" class="btn btn-primary" style="width: 85%">Compare with another Country</button>
+                </div>
+                <!--end code-->
+
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    var localities = {};
+    var listofLocalities = [];
+    var tworegion=false;
+    var dataset, dataset1, year, localityName;
+
+    $("#addLine").click(function(){
+        $("#addLine").attr("class","hidden");
+        $("#secondLine").attr("class","row");
+        tworegion=true;
+        drawLineChart(dataset,localityName);
+    });
+
+    $("#removeLine").click(function(){
+        $("#secondLine").attr("class","hidden");
+        $("#addLine").attr("class","btn btn-primary");
+        tworegion=false;
+        drawLineChart(dataset,localityName,localityName);
+    });
+    
+    function getDataset(dataValue,localityName){
+        dataset = localities[localityName][dataValue];
+        return dataset;
+    }
+
+    d3.select("#selectDatasetBar")
+            .on('change', function() {
+
+                // get the value selected from the dropdown
+
+                var selection = $('#selectBar').get(0);
+                localityName = selection.options[selection.selectedIndex].value;
+                var selection = $('#selectDatasetBar').get(0);
+                dataset = getDataset(selection.options[selection.selectedIndex].value,localityName);
+                // re-draw bar chart for the new locality
+                drawBarChart(dataset,localityName);
+            });
+           
+
+    d3.select("#selectBar")
+            .on('change', function() {
+
+                // get the value selected from the dropdown
+                var selection = $('#selectBar').get(0);
+                localityName = selection.options[selection.selectedIndex].value;
+                var selection = $('#selectDatasetBar').get(0);
+                dataset = getDataset(selection.options[selection.selectedIndex].value,localityName);
+
+                drawBarChart(dataset,localityName);
+            });
+
+
+    d3.select("#selectLine")
+            .on('change', function() {
+
+                // get the value selected from the dropdown
+                var selection = $('#selectLine').get(0);
+                localityName = selection.options[selection.selectedIndex].value;
+
+                var selection = $('#selectDatasetLine').get(0);
+                dataset = getDataset(selection.options[selection.selectedIndex].value,localityName);
+
+                drawLineChart(dataset,localityName);
+            });
+    d3.select("#selectDatasetLine")
+            .on('change', function() {
+
+                // get the value selected from the dropdown
+
+                var selection = $('#selectLine').get(0);
+                localityName = selection.options[selection.selectedIndex].value;
+                var selection = $('#selectDatasetLine').get(0);
+                dataset = getDataset(selection.options[selection.selectedIndex].value,localityName);
+                // re-draw bar chart for the new locality
+                drawLineChart(dataset,localityName);
+            });
+            //added code
+    d3.select("#selectLine2")
+            .on('change', function() {
+
+                // figure out the newly selected locality
+                var selection = $('#selectLine').get(0);
+                localityName = selection.options[selection.selectedIndex].value;
+                var selection = $('#selectDatasetLine').get(0);
+                dataset = getDataset(selection.options[selection.selectedIndex].value,localityName);
+
+
+                // re-draw bar chart for the new locality
+                drawLineChart(dataset,localityName);
+            });
+            //end code 
+    function pageload(listofLocalities){
+
+        d3.select('#selectBar').selectAll('option').data(listofLocalities).enter().append('option')
+                .html(function(d) { 
+                    return d; })
+                .attr('value', function(d) {
+                 return d; });
+      
+        d3.select('#selectLine').selectAll('option').data(listofLocalities).enter().append('option')
+                .html(function(d) { return d; })
+                .attr('value', function(d) { 
+                    return d; });
+                //added code
+         d3.select('#selectLine2').selectAll('option').data(listofLocalities).enter().append('option')
+                .html(function(d) { return d; })
+                .attr('value', function(d) { return d; });
+                //end code
+
+        var selection = $('#selectBar').get(0);
+        localityName = selection.options[selection.selectedIndex].value;
+        var selection = $('#selectDatasetBar').get(0);
+        dataset = getDataset("totalPrimaryConsumption",localityName);
+        drawBarChart(dataset,localityName);
+        drawLineChart(dataset,localityName);
+    }
+
+
+    function drawBarChart(Data,localityName)
+    {
+
+//define the height and width for the chart
+        var chartWidth = 700;
+        var chartHeight = 420;
+
+        var barWidth = chartWidth / (Data.length);
+
+        //remove the previous plotted chart
+        d3.select("#barchart").selectAll('g').remove();
+        var group = d3.select("#barchart").append("g")
+                .attr("transform", "translate(100, 100)");
+
+            var maxValue = d3.max(Data);
+            var yScale = d3.scale.linear()
+                    .domain([0, maxValue])
+                    .range([chartHeight, 0]);
+            d3.select("#label")
+                    .html(localityName + ": Total Primary Energy Production (Quadrillion BTU)");
+
+
+            group.selectAll("rect").data(Data).enter().append('rect')
+                    .attr("x", function (d, i) {
+                        return i * barWidth
+                    })
+                    .attr("y", function (d, i) {
+                        return yScale(d);
+                    })
+                    .attr("width", barWidth)
+                    .attr("height", function (d) {
+                        return chartHeight - yScale(d);
+                    })
+                    .style("stroke", "white")
+                    .style("fill", "#756bb1")
+                     .on("mouseover", function(d,i){
+                            d3.select(this).style({
+                                stroke: "#e6550d"
+                            });
+                            d3.select("#barchart").append("text")
+                                    .attr("transform", "translate(100, 50)")
+                                    .attr({
+                                        id: "t" +  i,  // defined the id which can be referenced when we remove the tooltip
+                                        x: function() { 
+                                            return (i*barWidth).toFixed(1); },
+                                        y: function() { 
+                                            return (yScale(d).toFixed(1) ); }
+                                    })
+                                    .text(function() {
+                                        return [(i*barWidth).toFixed(1), (yScale(d)).toFixed(1)];  // Value of the text
+                                    });
+                        })
+                     .on("mouseout", function(d,i){
+                            d3.select(this).style({
+                                stroke: "white"
+                            });
+                            d3.select("#t" +  i).remove();  // Remove text location
+                        });
+                   
+        
+        var timeScale = d3.time.scale()
+                .domain([new Date(2012-Data.length, 1, 1), new Date(2012, 1, 1)])
+                .range([0, chartWidth])
+
+        var xAxis = d3.svg.axis()
+                .scale(timeScale)
+                .orient('bottom');
+
+        group.append("g")
+                .attr('class', 'axis')
+                .attr('transform', 'translate(0,' + chartHeight + ')')
+                .call(xAxis);
+
+        var yAxis = d3.svg.axis()
+                .scale(yScale)
+                .orient('left');
+
+        group.append("g")
+                .attr('class', 'axis')
+                .attr('transform', 'translate(-2,0)')
+                .call(yAxis);
+    }
+
+
+
+    function drawLineChart(Data,localityName)
+    {
+        var chartWidth = 700;
+        var chartHeight = 420;
+
+        var barWidth = chartWidth / (2012-1980+1);
+
+        d3.select("#linechart").selectAll('g').remove();
+
+        if(!tworegion) {
+            var maxValue = d3.max(Data);
+
+            var yScale = d3.scale.linear()
+                    .domain([0, maxValue])
+                    .range([chartHeight, 0]);
+            d3.select("#label1")
+                    .html(localityName + ": Total Primary Energy Production (Quadrillion BTU)");
+
+            var group = d3.select("#linechart").append("g")
+                    .attr("transform", "translate(100, 100)");
+
+            var svg = d3.select("#linechart");
+
+            var line = d3.svg.line()
+                    .x(function(d,i) { return i*barWidth; })
+                    .y(function(d) { return yScale(d); });
+
+            group.append("path")
+                    .attr("class", "line")
+                    .attr("d", line(Data))
+                    .style("stroke", "steelblue")
+                    .style("stroke-width", 2)
+                    .style("fill","none");
+        }
+        else {
+            var selection = $('#selectLine2').get(0);
+            localityTwo = selection.options[selection.selectedIndex].value;
+            var selection = $('#selectDatasetLine').get(0);
+            Data1 = getDataset(selection.options[selection.selectedIndex].value,localityTwo);
+            var maxValue = d3.max(Data) > d3.max(Data1)?d3.max(Data):d3.max(Data1);
+            var yScale = d3.scale.linear()
+                    .domain([0, maxValue])
+                    .range([chartHeight, 0]);
+            d3.select("#label1")
+                    .html(localityName + "&"+localityTwo+": Total Primary Energy Production (Quadrillion BTU)");
+
+            var valueline = d3.svg.line()
+                    .x(function(d,i) { return i*barWidth; })
+                    .y(function(d) { return yScale(d); });
+
+            var group = d3.select("#linechart").append("g")
+                    .attr("transform", "translate(100, 100)");
+
+            group.append("path")
+                    .attr("class", "line")
+                    .attr("d", valueline(Data))
+                    .style("stroke", "blue")
+                    .style("stroke-width", 2)
+                    .style("fill","none")
+
+
+            var group = d3.select("#linechart").append("g")
+                    .attr("transform", "translate(100, 100)");
+
+            group.append("path")
+                    .attr("class", "line")
+                    .attr("d", valueline(Data1))
+                    .style("stroke", "red")
+                    .style("stroke-width", 2)
+                    .style("fill","none")
+                    .on("mouseover", function(){
+                        d3.select(this).style({
+                            stroke: "#e6550d"
+                        });
+                    })
+                    .on("mouseout", function(){
+                        d3.select(this).style({
+                            stroke: "#e6550d"
+                        });
+                    });
+
+
+        }
+
+      //create the x-scale 
+        var timeScale = d3.time.scale()
+                .domain([new Date(1980, 1, 1), new Date(2012, 1, 1)])
+                .range([0, chartWidth])
+        //create the x-axis
+        var xAxis = d3.svg.axis()
+                .scale(timeScale)
+                .orient('bottom');
+
+        group.append("g")
+                .attr('class', 'axis')
+                .attr('transform', 'translate(0,' + chartHeight + ')')
+                .call(xAxis);
+        //create a y-axis
+        var yAxis = d3.svg.axis()
+                .scale(yScale)
+                .orient('left');
+
+        group.append("g")
+                .attr('class', 'axis')
+                .attr('transform', 'translate(-2,0)')
+                .call(yAxis);
+    }
+
+</script>
+</body>
+
+</html>
