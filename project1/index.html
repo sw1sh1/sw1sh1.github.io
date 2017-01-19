@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Project 1 - Interactive Visualization</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.1.2/papaparse.min.js" charset="utf-8"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+	<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+
+	<style>
+		/* Set height of the grid so .sidenav can be 100% (adjust if needed) */
+	    .row.content {height: 1500px}
+	    
+	    /* Set gray background color and 100% height */
+	    .sidenav {
+	      background-color: #f1f1f1;
+	      height: 100%;
+	    }
+	    
+	    /* Set black background color, white text and some padding */
+	    footer {
+	      background-color: #555;
+	      color: white;
+	      padding: 15px;
+	    }
+	    
+	    /* On small screens, set height to 'auto' for sidenav and grid */
+	    @media screen and (max-width: 767px) {
+	      .sidenav {
+	        height: auto;
+	        padding: 15px;
+	      }
+	      .row.content {height: auto;} 
+	    }
+
+
+    	text { 
+			font-family: Arial; 
+			font-size: 15px;
+		}
+		.axis path, .axis line {
+			fill: none;
+			stroke: black;
+			shape-rendering: crispEdges;
+		}
+		.tick text {
+			fill: black;
+			font-size: 11px;
+		}
+
+		.x.axis path{
+			display: none;
+		}
+
+		.line {
+			fill: none;
+			stroke: steelblue;
+			stroke-width: 1.5px;
+		}
+
+		/* Code from http://bl.ocks.org/Caged/6476579 */
+		.d3-tip {
+		  line-height: 1;
+		  font-weight: bold;
+		  padding: 12px;
+		  background: rgba(0, 0, 0, 0.8);
+		  color: #fff;
+		  border-radius: 2px;
+		}
+
+		/* Creates a small triangle extender for the tooltip */
+		.d3-tip:after {
+		  box-sizing: border-box;
+		  display: inline;
+		  font-size: 10px;
+		  width: 100%;
+		  line-height: 1;
+		  color: rgba(0, 0, 0, 0.8);
+		  content: "\25BC";
+		  position: absolute;
+		  text-align: center;
+		}
+
+		/* Style northward tooltips differently */
+		.d3-tip.n:after {
+		  margin: -1px 0 0 0;
+		  top: 100%;
+		  left: 0;
+		}
+
+	</style>
+</head>
+<body>
+
+	
+	<div class="container-fluid">
+ 	 <div class="row content">
+    <div class="col-sm-3 sidenav">
+      <h4>Project 1 - Interactive Visualization</h4>
+      <ul class="nav nav-pills nav-stacked">
+        <li class="active"><a href="index.html">Barchart</a></li>
+        <li><a href="linechart.html">Linechart</a></li>
+        <li><a href="barchartcomparison.html">Bar Chart Comparison</a></li>
+        <li><a href="linechartcomparison.html">Line Chart Comparison</a></li>
+        <li><a href="Design Process Documentation.pdf">Documentation</a></li>
+        <li><a href="http://youtube.com">Tutorial</a></li>
+      </ul><br>
+      
+    </div>
+
+	    <div class="col-sm-9 sidenav">
+		<svg id="main" width="600" height="600"> <!--main drawing area of the chart -->
+			<text id='label' x='100' y='70'></text>  <!--label displayed top of the chart -->
+		</svg>
+		</div>
+
+		<select id="selectionWidget" style="position: absolute; left: 30px; top: 350px">
+		
+		</select>
+		
+		<!-- Added for the 13 variables to be displayed -->
+		<select id="selectionWidget2" style="position: absolute; left: 30px; top: 300px">
+			<option value="Primary Energy Production">Pick a Category</option>
+			<option value="Primary Energy Production">Primary Energy Production</option>
+			<option value="Primary Energy Consumption">Primary Energy Consumption</option>
+			<option value="Electricity Generation">Electricity Generation</option>
+			<option value="Electricity Consumption">Electricity Consumption</option>
+			<option value="Renewable Electricity Generation">Renewable Electricity Generation</option>
+			<option value="Renewable Electricity Consumption">Renewable Electricity Consumption</option>
+			<option value="Renewable Biofuels Production">Renewable Biofuels Production</option>
+			<option value="Renewable Biofuels Consumption">Renewable Biofuels Consumption</option>
+			<option value="Petroleum Production">Petroleum Production</option>
+			<option value="Petroleum Consumption">Petroleum Consumption</option>
+			<option value="Coal Production">Coal Production</option>
+			<option value="Coal Consumption">Coal Consumption</option>
+			<option value="CO2 Emission">CO2 Emission</option>
+		</select>
+
+	<script>
+
+		var listOfLocalities = [];
+		var localities = {};
+
+			// populate selection list for variables
+		d3.select("#selectionWidget2")
+		.on('change', function() {
+		d3.select("#main").selectAll('g').remove();
+		var selection = document.getElementById('selectionWidget2');
+		var option = selection.options[selection.selectedIndex].value;
+		console.log("selection widget is" +option);
+
+		if (option == "Primary Energy Production")
+		{
+		console.log("Plotting Production");
+		Papa.parse('data/total_primary_energy_production.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+				d3.select('#selectionWidget').selectAll('option').data(listOfLocalities).enter().append('option')
+				.html(function(d) { return d; })
+				.attr('value', function(d) { return d; })
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		
+		}
+
+		else if (option == "Primary Energy Consumption")
+
+		{
+			
+			console.log("Plotting Consumption");
+			Papa.parse('data/total_primary_energy_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Consumption chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+					else if (option == "Electricity Generation")
+
+		{
+			
+			console.log("Plotting Generation");
+			Papa.parse('data/total_electricity_generation.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+		else if (option == "Electricity Consumption")
+
+		{
+			
+			console.log("Plotting Consumption");
+			Papa.parse('data/total_electricity_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+		else if (option == "Renewable Electricity Generation")
+
+		{
+			
+			console.log("Plotting Consumption");
+			Papa.parse('data/renewable_electricity_generation.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+		else if (option == "Renewable Electricity Consumption")
+
+		{
+			
+			console.log("Plotting Consumption");
+			Papa.parse('data/renewable_electricity_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+			else if (option == "Renewable Biofuels Production")
+
+		{
+			
+			console.log("Plotting Consumption");
+			Papa.parse('data/renewable_biofuel_production.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+			else if (option == "Renewable Biofuels Consumption")
+
+		{
+			
+			console.log("Plotting Biofuel Consumption");
+			Papa.parse('data/renewable_biofuel_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+			else if (option == "Petroleum Production")
+
+		{
+			
+			console.log("Plotting Petroleum Production");
+			Papa.parse('data/petroleum_production.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}
+
+			else if (option == "Petroleum Consumption")
+
+		{
+			
+			console.log("Plotting Petroleum Production");
+			Papa.parse('data/petroleum_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}	
+
+			else if (option == "Coal Production")
+
+		{
+			
+			console.log("Plotting Petroleum Production");
+			Papa.parse('data/coal_production.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}	
+
+			else if (option == "Coal Consumption")
+
+		{
+			
+			console.log("Plotting Petroleum Production");
+			Papa.parse('data/coal_consumption.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}	
+
+			else if (option == "CO2 Emission")
+
+		{
+			
+			console.log("Plotting Petroleum Production");
+			Papa.parse('data/co2_emissions_per_capita.csv', 
+		{
+		
+			download: true,
+			header: true,
+			dynamicTyping: true,
+			complete: function(results) 
+			{
+				// loop through all the rows in file
+				for (var row=0; row < results.data.length; row++)
+				{
+					var record = results.data[row];
+					
+					// make an object to store data for the current locality
+					var locality = {
+						name: record.Locality,
+						energyProduction: []
+
+					}
+					console.log('locality: ' + locality);
+
+					// loop through all years, from 1980 to 2012
+					for (var year=1980; year<=2012; year++) 
+					{
+						var value = record[year];
+
+						// deal with missing data points
+						if (value === '--') {
+							value = 0;
+						}
+						else if (value === 'NA') {
+							value = 0;
+						}
+						else if (value === '(s)') {
+							value = 0;
+						}
+						else if (value === 'W') {
+							value = 0;
+						}
+						// add value of energy production for the selected country/region
+						locality.energyProduction.push( value );
+					}
+
+					// add the current locality to an index
+					localities[ locality.name] = locality;
+					//push the index in an array
+					listOfLocalities.push( locality.name );
+				}
+				// make bar chart
+				//drawBarChart('United States');
+
+				console.log("Generation chart");
+
+				drawBarChart('North America');
+				//console.log("Before the selection line function");
+				selectionLine(localities);
+				//console.log("After the selection line function");
+				
+			}
+						
+		});
+		}	
+
+				});
+
+
+
+		function selectionLine(localities){
+		// populate selection list
+		d3.select('#selectionWidget').selectAll('option').data(listOfLocalities).enter().append('option')
+		.html(function(d) { return d; })
+		.attr('value', function(d) { return d; })
+
+			
+		d3.select("#selectionWidget")
+			.on('change', function() {
+
+			// clear the contents of the chart
+			d3.select("#main").selectAll('g').remove();
+
+			// figure out the newly selected locality
+			var selection = document.getElementById('selectionWidget');
+			var localityName = selection.options[selection.selectedIndex].value;
+			// re-draw bar chart for the new locality
+			//drawBarChart(localityName);
+			drawBarChart(localityName);
+					});
+		}
+
+		function drawBarChart(localityName)
+		{
+			// get energy production for USA
+			console.log("Inside the drawBarChart function");
+			var energyProductionUSA = localities[localityName].energyProduction;
+			console.log("energyProductionUSA is" + energyProductionUSA);
+
+			// store the maximum energy production value in a variable
+			var maxProduction = d3.max(energyProductionUSA);
+
+			// chart size 
+			var chartWidth = 500;
+			var chartHeight = 220;
+
+			// figure out the width of individual bars
+			var barWidth = chartWidth / (2012-1980+1);
+
+			// create y-scale
+			var yScale = d3.scale.linear()
+				.domain([0, maxProduction])
+				.range([chartHeight, 0]);
+
+			/*Start-code attribued to http://bl.ocks.org/Caged/6476579*/
+
+			var tip = d3.tip()
+			  .attr('class', 'd3-tip')
+			  .offset([-10, 0])
+			  .html(function(d) {
+			    console.log("OnHover" + d.energyProductionUSA);
+			    return "<strong>Value:</strong> <span style='color:grey'>" + d.energyProductionUSA+ "</span>";
+
+			  });
+
+			/*End: code attribued to http://bl.ocks.org/Caged/6476579*/
+
+			// create a group for the bar chart
+			d3.select("#label")
+				.html(localityName + " primary energy production (Quadrillion BTU)");
+
+			var group = d3.select("#main").append("g")
+				.attr("transform", "translate(100, 100)");
+
+			group.selectAll("rect").data(energyProductionUSA).enter().append('rect')
+				.attr("x", function(d, i) { return i*barWidth })
+				.attr("y", function(d, i) { 
+					return yScale(d);
+				})
+				.attr("width", barWidth)
+				.attr("height", function(d) { 
+					return chartHeight - yScale(d); 
+				})
+				.style("stroke", "white")
+				.style("fill", "#0066cc")
+				.on('mouseover', tip.show)
+				.on('mouseout', tip.hide);
+
+			
+			// create x axis
+			var timeScale = d3.time.scale()
+				.domain([new Date(1980, 1, 1), new Date(2012, 1, 1)])
+				.range([0, chartWidth])
+
+			var xAxis = d3.svg.axis()
+				.scale(timeScale)
+				.orient('bottom');
+
+			// create y axis
+			group.append("g")
+				.attr('class', 'axis')
+				.attr('transform', 'translate(0,' + chartHeight + ')')
+				.call(xAxis);
+
+			var yAxis = d3.svg.axis()
+				.scale(yScale)
+				.orient('left');
+
+			group.append("g")
+				.attr('class', 'axis')
+				.attr('transform', 'translate(-2,0)')
+				.call(yAxis)
+				.call(tip)
+				.append("text")
+				.attr("class", "y label")
+				.text("Quadrillion BTU")
+				.attr("transform", "rotate(-90)")
+				.attr("y", 6)
+				.attr("dy", ".71em")
+				.style("text-anchor", "end");
+		}
+
+		
+
+	</script>
+</body>
+
+
+</html>
